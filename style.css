@@ -19,6 +19,16 @@ body {
   position: relative;
 }
 
+.game-title {
+  text-align: center;
+  font-size: 48px;
+  font-weight: 800;
+  letter-spacing: 12px;
+  color: #7aa2f7;
+  text-shadow: 0 0 20px rgba(122, 162, 247, 0.6), 0 0 4px rgba(122, 162, 247, 0.9);
+  margin-bottom: 24px;
+}
+
 .game-container {
   display: flex;
   gap: 20px;
