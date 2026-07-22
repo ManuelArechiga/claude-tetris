@@ -110,12 +110,49 @@ body {
   align-items: flex-start;
 }
 
+.board-wrap {
+  position: relative;
+}
+
 #board {
   display: block;
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
   box-shadow: 0 0 40px var(--board-shadow);
+}
+
+/* ---- Toast de mensajes (combo, T-spin, power-ups...) ---- */
+.flash {
+  position: absolute;
+  top: 40%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-shadow: 0 0 16px var(--accent-text-shadow-1), 0 0 4px var(--accent-text-shadow-2);
+  text-align: center;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.flash.hidden {
+  display: none;
+}
+
+.flash-anim {
+  animation: flashPop 1.2s ease-out;
+}
+
+@keyframes flashPop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.7); }
+  15% { opacity: 1; transform: translate(-50%, -50%) scale(1.08); }
+  25% { transform: translate(-50%, -50%) scale(1); }
+  80% { opacity: 1; }
+  100% { opacity: 0; }
 }
 
 /* ---- Panel lateral ---- */
@@ -148,11 +185,17 @@ body {
   letter-spacing: 1px;
 }
 
-#next-canvas {
+#next-canvas,
+#hold-canvas {
   display: block;
   border: 1px solid var(--board-border);
   background: var(--board-bg);
   border-radius: 4px;
+  transition: opacity 0.15s;
+}
+
+#hold-canvas.hold-locked {
+  opacity: 0.4;
 }
 
 /* ---- Controles ---- */
