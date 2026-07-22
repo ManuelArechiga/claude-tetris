@@ -1,0 +1,104 @@
+name: Claude Issue Triage
+
+on:
+  issues:
+    types: [opened, edited]
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Ensure triage labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          create_label() {
+            gh label create "$1" --color "$2" --description "$3" --force
+          }
+
+          # Priority
+          create_label "priority:high"   "b60205" "Should be addressed as soon as possible"
+          create_label "priority:medium" "fbca04" "Normal priority"
+          create_label "priority:low"    "0e8a16" "Low priority / nice to have"
+
+          # Area (Tetris game domain)
+          create_label "area:gameplay"    "1d76db" "Core game rules/logic (pieces, rotation, locking, lines)"
+          create_label "area:rendering"   "1d76db" "Canvas drawing / visuals"
+          create_label "area:controls"    "1d76db" "Keyboard/input handling"
+          create_label "area:scoring"     "1d76db" "Score, lines, level logic"
+          create_label "area:ui"          "1d76db" "HUD, overlay, menus, DOM/CSS"
+          create_label "area:performance" "1d76db" "Performance / frame rate issues"
+          create_label "area:build"       "1d76db" "Tooling, static hosting, project setup"
+
+      - name: Run Claude Issue Triage
+        id: claude-triage
+        uses: anthropics/claude-code-action@v1
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO: ${{ github.repository }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: |
+            --allowed-tools "Bash(gh issue view:*),Bash(gh label list:*),Bash(gh issue edit:*),Bash(gh issue comment:*),Bash(gh api:*)"
+          prompt: |
+            You are triaging GitHub issue #${{ github.event.issue.number }} in ${{ github.repository }},
+            a vanilla JavaScript Tetris game (see CLAUDE.md at the repo root for architecture context:
+            index.html, style.css, and game.js containing board model, pieces, rotation, collision,
+            game loop, locking/line clears, scoring/leveling, ghost piece, and game over detection).
+
+            Steps:
+
+            1. Read the issue with:
+               gh issue view "$ISSUE_NUMBER" --repo "$REPO" --json title,body,labels,comments
+
+            2. Decide labels for this issue, choosing ONLY from these allowed labels (do not invent new ones):
+               - Type: bug, enhancement, documentation, question
+               - Priority: priority:high, priority:medium, priority:low (pick exactly one)
+               - Area: area:gameplay, area:rendering, area:controls, area:scoring, area:ui,
+                 area:performance, area:build (pick one or more, whichever genuinely apply)
+
+               Apply the chosen labels with:
+               gh issue edit "$ISSUE_NUMBER" --repo "$REPO" --add-label "label1,label2,..."
+
+               If existing labels on the issue are clearly wrong or superseded (e.g. priority changed
+               after an edit), remove them with --remove-label instead of stacking conflicting labels.
+
+            3. Write a general diagnosis of the issue in English, including:
+               - A short summary of the reported problem.
+               - The most likely root cause, referencing specific game.js functions/concepts where
+                 possible (e.g. collide, rotateCW/tryRotate, clearLines, ghostY, spawn, loop).
+               - Which file(s)/area(s) of the codebase are likely involved.
+               - Suggested next steps to implement a fix (this diagnosis will be used later to write
+                 the actual code change, so be concrete and actionable).
+
+               If the issue lacks enough information to diagnose confidently, say so explicitly and
+               list the specific missing details needed.
+
+            4. Post the diagnosis as an issue comment, but avoid duplicate comments across re-runs
+               (this workflow also runs on issue edits):
+
+               a. Start the comment body with this exact hidden marker on its own line:
+                  <!-- claude-issue-triage -->
+
+               b. Check for an existing comment containing that marker:
+                  gh api "repos/$REPO/issues/$ISSUE_NUMBER/comments" --paginate \
+                    --jq '.[] | select(.body | startswith("<!-- claude-issue-triage -->")) | .id'
+
+               c. If a matching comment id is found, UPDATE that same comment instead of creating a
+                  new one:
+                  gh api --method PATCH "repos/$REPO/issues/comments/<id>" -f body="<full comment body>"
+
+               d. If no matching comment exists, create a new one:
+                  gh issue comment "$ISSUE_NUMBER" --repo "$REPO" --body "<full comment body>"
