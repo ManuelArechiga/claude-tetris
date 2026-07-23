@@ -108,8 +108,22 @@ const controlsToggleBtn = document.getElementById('controls-toggle-btn');
 const pauseControlsList = document.getElementById('pause-controls');
 const startLevelSelect = document.getElementById('start-level-select');
 
+const startScreen = document.getElementById('start-screen');
+const playBtn = document.getElementById('play-btn');
+const startHighscoresEl = document.getElementById('start-highscores');
+const startBestComboEl = document.getElementById('start-best-combo');
+const startBestLinesEl = document.getElementById('start-best-lines');
+const startResetScoresBtn = document.getElementById('start-reset-scores-btn');
+const overlayHighscoresEl = document.getElementById('overlay-highscores');
+const overlayBestComboEl = document.getElementById('overlay-best-combo');
+const overlayBestLinesEl = document.getElementById('overlay-best-lines');
+const overlayResetScoresBtn = document.getElementById('overlay-reset-scores-btn');
+const overlayHighscoreForm = document.getElementById('overlay-highscore-form');
+const overlayNameInput = document.getElementById('overlay-name-input');
+const overlayNameSaveBtn = document.getElementById('overlay-name-save');
+
 let board, current, next, hold, holdUsed, score, lines, level, paused, gameOver, lastTime, dropAccum, dropInterval, animId;
-let combo, b2b, lastMoveRotation, frozenUntil, linesForPowerup, pendingSingle;
+let combo, b2b, lastMoveRotation, frozenUntil, linesForPowerup, pendingSingle, maxCombo;
 
 // ---- Nivel inicial (elegido desde el menú de pausa, persiste entre partidas) ----
 const START_LEVEL_KEY = 'tetris-start-level';
@@ -310,6 +324,7 @@ function applyScore(cleared, tspin) {
 
   if (cleared > 0) {
     combo++;
+    if (combo > maxCombo) maxCombo = combo;
     if (combo >= 1) gained += COMBO_BONUS * combo * level;
   } else {
     combo = -1;
@@ -593,7 +608,29 @@ function endGame() {
   overlayScore.textContent = `Puntuación: ${score.toLocaleString()}`;
   pauseMenu.classList.add('hidden');
   gameoverBox.classList.remove('hidden');
+
+  // Estadísticas persistentes (mejor combo y máximo de líneas alcanzados).
+  const stats = loadStats();
+  let statsChanged = false;
+  if (maxCombo > stats.bestCombo) { stats.bestCombo = maxCombo; statsChanged = true; }
+  if (lines > stats.maxLines) { stats.maxLines = lines; statsChanged = true; }
+  if (statsChanged) saveStats(stats);
+
+  // Tabla de récords: si el puntaje final entra en el top 5, pedimos nombre.
+  const list = loadHighScores();
+  pendingHighScoreEntry = qualifiesForHighScore(list, score) ? { score } : null;
+  if (pendingHighScoreEntry) {
+    overlayHighscoreForm.classList.remove('hidden');
+    overlayNameInput.value = '';
+  } else {
+    overlayHighscoreForm.classList.add('hidden');
+  }
+
+  refreshHighScoreUI(-1);
   overlay.classList.remove('hidden');
+  if (pendingHighScoreEntry) {
+    setTimeout(() => overlayNameInput.focus(), 50);
+  }
 }
 
 function togglePause() {
@@ -665,6 +702,7 @@ function init() {
   hold = null;
   holdUsed = false;
   combo = -1;
+  maxCombo = 0;
   b2b = false;
   lastMoveRotation = false;
   frozenUntil = 0;
@@ -674,6 +712,10 @@ function init() {
   spawn();
   updateHUD();
   overlay.classList.add('hidden');
+  // Limpia cualquier formulario de récord pendiente de una partida anterior
+  // que no se haya guardado, para que no reaparezca al pausar la nueva.
+  pendingHighScoreEntry = null;
+  overlayHighscoreForm.classList.add('hidden');
   cancelAnimationFrame(animId);
   animId = requestAnimationFrame(loop);
 }
@@ -815,4 +857,127 @@ function toggleMute() {
 muteToggleBtn.addEventListener('click', toggleMute);
 applyMuteUI();
 
-init();
+// ---- Tabla de récords local (localStorage) ----
+const HIGHSCORES_KEY = 'tetris-highscores';
+const STATS_KEY = 'tetris-stats';
+const MAX_HIGHSCORES = 5;
+
+// Entrada { score } pendiente de nombre tras un game over que entró al top 5;
+// null cuando no hay ninguna pendiente.
+let pendingHighScoreEntry = null;
+
+function loadHighScores() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(HIGHSCORES_KEY));
+    if (!Array.isArray(raw)) return [];
+    return raw
+      .filter(e => e && typeof e.name === 'string' && typeof e.score === 'number')
+      .sort((a, b) => b.score - a.score)
+      .slice(0, MAX_HIGHSCORES);
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveHighScores(list) {
+  localStorage.setItem(HIGHSCORES_KEY, JSON.stringify(list));
+}
+
+function loadStats() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(STATS_KEY));
+    return {
+      bestCombo: raw && typeof raw.bestCombo === 'number' ? raw.bestCombo : 0,
+      maxLines: raw && typeof raw.maxLines === 'number' ? raw.maxLines : 0,
+    };
+  } catch (err) {
+    return { bestCombo: 0, maxLines: 0 };
+  }
+}
+
+function saveStats(stats) {
+  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+}
+
+function qualifiesForHighScore(list, candidateScore) {
+  if (candidateScore <= 0) return false;
+  if (list.length < MAX_HIGHSCORES) return true;
+  return candidateScore > list[list.length - 1].score;
+}
+
+function renderHighScores(listEl, list, highlightIndex) {
+  listEl.innerHTML = '';
+  if (!list.length) {
+    const li = document.createElement('li');
+    li.className = 'highscores-empty';
+    li.textContent = 'Sin récords aún';
+    listEl.appendChild(li);
+    return;
+  }
+  list.forEach((entry, i) => {
+    const li = document.createElement('li');
+    if (i === highlightIndex) li.classList.add('new-record');
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = `${i + 1}. ${entry.name}`;
+    const scoreSpan = document.createElement('span');
+    scoreSpan.textContent = entry.score.toLocaleString();
+    li.appendChild(nameSpan);
+    li.appendChild(scoreSpan);
+    listEl.appendChild(li);
+  });
+}
+
+function renderStats(comboEl, linesEl, stats) {
+  comboEl.textContent = stats.bestCombo;
+  linesEl.textContent = stats.maxLines;
+}
+
+// Vuelve a pintar la tabla de récords y las estadísticas tanto en la
+// pantalla de inicio como en el overlay de game over.
+function refreshHighScoreUI(highlightIndex) {
+  const list = loadHighScores();
+  const stats = loadStats();
+  renderHighScores(startHighscoresEl, list, -1);
+  renderStats(startBestComboEl, startBestLinesEl, stats);
+  renderHighScores(overlayHighscoresEl, list, highlightIndex);
+  renderStats(overlayBestComboEl, overlayBestLinesEl, stats);
+}
+
+function saveHighScoreEntry() {
+  if (!pendingHighScoreEntry) return;
+  const rawName = (overlayNameInput.value || '').trim().slice(0, 12);
+  const name = rawName || 'Jugador';
+  const entry = { name, score: pendingHighScoreEntry.score };
+  const list = loadHighScores();
+  list.push(entry);
+  list.sort((a, b) => b.score - a.score);
+  const trimmed = list.slice(0, MAX_HIGHSCORES);
+  saveHighScores(trimmed);
+  const highlightIndex = trimmed.indexOf(entry);
+  pendingHighScoreEntry = null;
+  overlayHighscoreForm.classList.add('hidden');
+  refreshHighScoreUI(highlightIndex);
+}
+
+function resetHighScoresAndStats() {
+  localStorage.removeItem(HIGHSCORES_KEY);
+  localStorage.removeItem(STATS_KEY);
+  refreshHighScoreUI(-1);
+}
+
+overlayNameSaveBtn.addEventListener('click', saveHighScoreEntry);
+overlayNameInput.addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') saveHighScoreEntry();
+});
+startResetScoresBtn.addEventListener('click', resetHighScoresAndStats);
+overlayResetScoresBtn.addEventListener('click', resetHighScoresAndStats);
+
+// ---- Pantalla de inicio ----
+// El juego ya no arranca solo: se muestra la pantalla de inicio con la tabla
+// de récords, y "Jugar" es quien dispara init().
+refreshHighScoreUI(-1);
+playBtn.addEventListener('click', () => {
+  startScreen.classList.add('hidden');
+  init();
+});
