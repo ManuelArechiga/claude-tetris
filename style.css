@@ -104,6 +104,24 @@ body {
   border-color: var(--accent);
 }
 
+/* ---- Selector de tema visual (skin) ---- */
+.skin-select {
+  background: var(--board-bg);
+  border: 1px solid var(--board-border);
+  color: var(--text);
+  border-radius: 6px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.skin-select:hover {
+  border-color: var(--accent);
+}
+
 .game-container {
   display: flex;
   gap: 20px;
@@ -277,4 +295,196 @@ kbd {
 
 #restart-btn:hover {
   background: var(--restart-hover);
+}
+
+#gameover-box.hidden {
+  display: none;
+}
+
+/* ---- Menú de pausa ---- */
+.pause-menu {
+  min-width: 220px;
+}
+
+.pause-menu.hidden {
+  display: none;
+}
+
+.pause-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--overlay-title);
+}
+
+.pause-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.pause-actions button {
+  background: var(--restart-bg);
+  color: var(--restart-text);
+  border: none;
+  border-radius: 6px;
+  padding: 10px 28px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 1px;
+  transition: background 0.15s;
+}
+
+.pause-actions button:hover {
+  background: var(--restart-hover);
+}
+
+.controls-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-self: stretch;
+}
+
+.controls-list.hidden {
+  display: none;
+}
+
+.controls-list li {
+  font-size: 12px;
+  color: var(--controls-color);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pause-level-select {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.pause-level-select select {
+  background: var(--kbd-bg);
+  border: 1px solid var(--kbd-border);
+  color: var(--text);
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* ---- Pantalla de inicio ---- */
+#start-title {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  color: var(--accent);
+}
+
+/* ---- Tabla de récords ---- */
+.highscores-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.highscores-list {
+  list-style: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13px;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.highscores-list li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 8px;
+  border-radius: 3px;
+}
+
+.highscores-list li.new-record {
+  background: var(--accent);
+  color: var(--restart-text, #0f0f17);
+  font-weight: 700;
+}
+
+.highscores-empty {
+  color: var(--controls-color);
+  font-size: 12px;
+}
+
+.stats-line {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--controls-color);
+  margin-top: 4px;
+}
+
+.reset-scores-btn {
+  margin-top: 4px;
+  background: transparent;
+  color: var(--controls-color);
+  border: 1px solid var(--kbd-border);
+  border-radius: 6px;
+  padding: 6px 16px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.reset-scores-btn:hover {
+  background: var(--kbd-bg);
+  color: var(--text);
+}
+
+.highscore-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.highscore-form.hidden {
+  display: none;
+}
+
+.highscore-form-row {
+  display: flex;
+  gap: 6px;
+}
+
+.highscore-form-row input {
+  width: 120px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--kbd-border);
+  background: var(--kbd-bg);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.highscore-form-row button {
+  background: var(--restart-bg);
+  color: var(--restart-text);
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
 }
