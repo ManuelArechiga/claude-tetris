@@ -104,6 +104,24 @@ body {
   border-color: var(--accent);
 }
 
+/* ---- Selector de tema visual (skin) ---- */
+.skin-select {
+  background: var(--board-bg);
+  border: 1px solid var(--board-border);
+  color: var(--text);
+  border-radius: 6px;
+  height: 36px;
+  padding: 0 8px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.skin-select:hover {
+  border-color: var(--accent);
+}
+
 .game-container {
   display: flex;
   gap: 20px;
