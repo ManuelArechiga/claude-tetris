@@ -21,6 +21,35 @@ const COLORS = [
   '#ffe082', // 13 power-up (color base; se sobreescribe visualmente con glifo)
 ];
 
+// Paleta alternativa suave/apagada para el skin "pastel".
+const PASTEL_COLORS = [
+  null,
+  '#a8dadc', // 1  I
+  '#ffe8a3', // 2  O
+  '#c9b6e4', // 3  T
+  '#b8e0c8', // 4  S
+  '#f4b8b8', // 5  Z
+  '#a9c9ec', // 6  J
+  '#f6cfa3', // 7  L
+  '#f2b8cf', // 8  + pentominó
+  '#cfe6b0', // 9  U pentominó
+  '#a3d9d3', // 10 Y pentominó
+  '#fff3c2', // 11 single
+  '#d3c2ec', // 12 3x3 hueca
+  '#ffedb0', // 13 power-up
+];
+
+// Configuración de skins visuales: paleta de color alternativa (null = usar
+// COLORS) y flags de estilo de dibujo que consulta drawBlock().
+const SKINS = {
+  retro: { label: 'Retro', colors: null, glow: false, rounded: false, texture: null },
+  neon: { label: 'Neón', colors: null, glow: true, rounded: false, texture: null },
+  pastel: { label: 'Pastel', colors: PASTEL_COLORS, glow: false, rounded: true, texture: null },
+  pixel: { label: 'Pixel art', colors: null, glow: false, rounded: false, texture: 'dither' },
+};
+
+let activeSkin = 'retro';
+
 const PIECES = [
   null,
   [[0,0,0,0],[1,1,1,1],[0,0,0,0],[0,0,0,0]], // 1  I
@@ -403,15 +432,84 @@ function updateHUD() {
   levelEl.textContent = level;
 }
 
+// Traza (sin rellenar) un rectángulo de esquinas redondeadas; usa
+// ctx.roundRect nativo cuando está disponible y cae a un path manual si no.
+function tracePastelRoundedRect(context, x, y, w, h, r) {
+  r = Math.max(0, Math.min(r, w / 2, h / 2));
+  context.beginPath();
+  if (typeof context.roundRect === 'function') {
+    context.roundRect(x, y, w, h, r);
+  } else {
+    context.moveTo(x + r, y);
+    context.arcTo(x + w, y, x + w, y + h, r);
+    context.arcTo(x + w, y + h, x, y + h, r);
+    context.arcTo(x, y + h, x, y, r);
+    context.arcTo(x, y, x + w, y, r);
+    context.closePath();
+  }
+}
+
+// Dibuja una textura de "dither" (rejilla de puntos) para el skin pixel art,
+// dentro de los límites del bloque ya pintado.
+function drawPixelTexture(context, px, py, s, size) {
+  const step = Math.max(2, Math.floor(size / 6));
+  context.save();
+  context.globalAlpha = (context.globalAlpha || 1) * 0.3;
+  context.fillStyle = '#000';
+  for (let yy = 0; yy < s; yy += step * 2) {
+    for (let xx = 0; xx < s; xx += step * 2) {
+      context.fillRect(px + xx, py + yy, step, step);
+    }
+  }
+  context.restore();
+}
+
 function drawBlock(context, x, y, colorIndex, size, alpha, powerupKind) {
   if (!colorIndex) return;
-  const color = powerupKind ? POWERUP_COLOR : COLORS[colorIndex];
+  const skin = SKINS[activeSkin] || SKINS.retro;
+  const palette = skin.colors || COLORS;
+  const color = powerupKind ? POWERUP_COLOR : (palette[colorIndex] || COLORS[colorIndex]);
   context.globalAlpha = alpha ?? 1;
+
+  const px = x * size + 1;
+  const py = y * size + 1;
+  const s = size - 2;
+
+  if (skin.glow) {
+    context.shadowBlur = size * 0.6;
+    context.shadowColor = color;
+  }
+
   context.fillStyle = color;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, size - 2);
+  if (skin.rounded) {
+    const r = Math.max(2, size * 0.18);
+    tracePastelRoundedRect(context, px, py, s, s, r);
+    context.fill();
+  } else {
+    context.fillRect(px, py, s, s);
+  }
+
+  if (skin.glow) {
+    context.shadowBlur = 0;
+  }
+
   // highlight
   context.fillStyle = blockHighlightColor;
-  context.fillRect(x * size + 1, y * size + 1, size - 2, 4);
+  if (skin.rounded) {
+    const r = Math.max(2, size * 0.18);
+    context.save();
+    tracePastelRoundedRect(context, px, py, s, s, r);
+    context.clip();
+    context.fillRect(px, py, s, 4);
+    context.restore();
+  } else {
+    context.fillRect(px, py, s, 4);
+  }
+
+  if (skin.texture === 'dither') {
+    drawPixelTexture(context, px, py, s, size);
+  }
+
   if (powerupKind) {
     context.fillStyle = '#000';
     context.font = `${Math.floor(size * 0.55)}px sans-serif`;
@@ -420,6 +518,7 @@ function drawBlock(context, x, y, colorIndex, size, alpha, powerupKind) {
     context.fillText(POWERUP_GLYPHS[powerupKind], x * size + size / 2, y * size + size / 2 + 1);
   }
   context.globalAlpha = 1;
+  context.shadowBlur = 0;
 }
 
 function drawGrid() {
@@ -638,6 +737,28 @@ function toggleTheme() {
 
 themeToggleBtn.addEventListener('click', toggleTheme);
 applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
+// ---- Skins visuales (independiente del tema claro/oscuro) ----
+const SKIN_KEY = 'tetris-skin';
+const skinSelect = document.getElementById('skin-select');
+
+function applySkin(name) {
+  if (!SKINS[name]) name = 'retro';
+  activeSkin = name;
+  if (skinSelect) skinSelect.value = name;
+  if (board) draw();
+  drawNext();
+  drawHold();
+}
+
+function changeSkin() {
+  const name = skinSelect.value;
+  localStorage.setItem(SKIN_KEY, name);
+  applySkin(name);
+}
+
+if (skinSelect) skinSelect.addEventListener('change', changeSkin);
+applySkin(localStorage.getItem(SKIN_KEY) || 'retro');
 
 // ---- Toast de mensajes (combo, T-spin, power-ups...) ----
 let flashTimeout = null;
